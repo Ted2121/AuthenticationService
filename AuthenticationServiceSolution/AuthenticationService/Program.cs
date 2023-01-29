@@ -1,3 +1,6 @@
+using AuthenticationService.Data;
+using Microsoft.EntityFrameworkCore;
+
 namespace AuthenticationService;
 
 public class Program
@@ -12,6 +15,13 @@ public class Program
         // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
         builder.Services.AddEndpointsApiExplorer();
         builder.Services.AddSwaggerGen();
+
+        builder.Services.AddDbContext<AppDbContext>(options => options.UseCosmos(
+            builder.Configuration["Users:AccountEndpoint"],
+            builder.Configuration["Users:AccountKey"],
+            builder.Configuration["Users:DatabaseName"]
+            ));
+        builder.Services.AddTransient<IUserRepository, UserRepository>();
 
         var app = builder.Build();
 
