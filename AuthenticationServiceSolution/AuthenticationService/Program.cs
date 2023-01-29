@@ -1,5 +1,7 @@
 using AuthenticationService.Data;
+using AuthenticationService.Extensions;
 using Microsoft.EntityFrameworkCore;
+using Serilog;
 
 namespace AuthenticationService;
 
@@ -12,16 +14,20 @@ public class Program
         // Add services to the container.
 
         builder.Services.AddControllers();
-        // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
         builder.Services.AddEndpointsApiExplorer();
         builder.Services.AddSwaggerGen();
 
         builder.Services.AddDbContext<AppDbContext>(options => options.UseCosmos(
             builder.Configuration["Users:AccountEndpoint"],
             builder.Configuration["Users:AccountKey"],
-            builder.Configuration["Users:DatabaseName"]
+            builder.Configuration["Users:Database"]
             ));
         builder.Services.AddTransient<IUserRepository, UserRepository>();
+
+        builder.Services.AddAutoMapper(AppDomain.CurrentDomain.GetAssemblies());
+
+        builder.Host.UseSerilog((ctx, lc) => lc
+    .ReadFrom.Configuration(ctx.Configuration));
 
         var app = builder.Build();
 
@@ -31,6 +37,10 @@ public class Program
             app.UseSwagger();
             app.UseSwaggerUI();
         }
+
+        app.ConfigureExceptionHandler(app.Logger);
+
+        app.UseSerilogRequestLogging();
 
         app.UseHttpsRedirection();
 
