@@ -110,12 +110,22 @@ public class UserRepository : IUserRepository
     {
         if (user == null)
         {
-            throw new ArgumentNullException(nameof(user));
+            throw new ArgumentNullException("User was null");
+        }
+        if (user.Id == null)
+        {
+            throw new ArgumentNullException("User's id was null");
         }
 
         try
         {
             var userToUpdate = await _appDbContext.FindAsync<User>(user.Id);
+
+            if (userToUpdate == null)
+            {
+                throw new Exception($"User with id: {user.Id} was not found");
+            }
+
             userToUpdate.FirstName = user.FirstName;
             userToUpdate.LastName = user.LastName;
             userToUpdate.Email = user.Email;
@@ -178,4 +188,22 @@ public class UserRepository : IUserRepository
         return await _appDbContext.SaveChangesAsync() >= 0;
     }
 
+    public async Task<User> GetUserByUserameAsync(string username)
+    {
+        if (username == null)
+        {
+            throw new ArgumentNullException();
+        }
+
+        try
+        {
+            return await _appDbContext.Users.FirstOrDefaultAsync(u => u.UserName.Equals(username));
+        }
+        catch (Exception ex)
+        {
+
+            throw new Exception($"Failed getting user with username: {username}. Exception was: {ex}");
+
+        }
+    }
 }

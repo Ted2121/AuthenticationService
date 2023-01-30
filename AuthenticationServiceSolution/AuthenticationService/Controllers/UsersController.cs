@@ -2,6 +2,7 @@
 using AuthenticationService.DTOs;
 using AuthenticationService.Models;
 using AutoMapper;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
@@ -11,6 +12,7 @@ namespace AuthenticationService.Controllers;
 
 [Route("api/[controller]")]
 [ApiController]
+[Authorize]
 public class UsersController : ControllerBase
 {
     private readonly IUserRepository _userRepository;
@@ -53,9 +55,15 @@ public class UsersController : ControllerBase
         return Ok(_mapper.Map<UserDto>(user));
     }
 
+    [AllowAnonymous]
     [HttpPost]
     public async Task<ActionResult<string>> CreateUserAsync(UserDto userDto)
     {
+        if (!ModelState.IsValid)
+        {
+            return BadRequest(ModelState);
+        }
+
         userDto.Id = Guid.NewGuid().ToString();
         var returnedId = await _userRepository.CreateUserAsync(_mapper.Map<User>(userDto));
         if (returnedId == null)
@@ -94,9 +102,10 @@ public class UsersController : ControllerBase
         return NoContent();
     }
 
+    [AllowAnonymous]
     [Route("login")]
     [HttpPost]
-    public ActionResult<string> LoginUserAsync(UserDto userDto)
+    public ActionResult<string> LoginUserAsync(UserLoginDto userDto)
     {
         if (!ModelState.IsValid)
         {
@@ -133,10 +142,14 @@ public class UsersController : ControllerBase
         var key = new SymmetricSecurityKey(System.Text.Encoding.UTF8.GetBytes(_configuration["Users:JwtToken"]));
 
         var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha512Signature);
-
+        
         var token = new JwtSecurityToken(
             claims: claims,
+            // TODO : replace 30 days with 15 mins for production
+            // expires: DateTime.Now.AddMinutes(15),
             expires: DateTime.Now.AddDays(30),
+            issuer: _configuration["Jwt:Issuer"],
+            audience: _configuration["Jwt:Audience"],
             signingCredentials: credentials);
 
         var jwt = new JwtSecurityTokenHandler().WriteToken(token);

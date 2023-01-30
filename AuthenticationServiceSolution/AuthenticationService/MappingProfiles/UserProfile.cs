@@ -10,7 +10,7 @@ public class UsersProfile : Profile
     {
         // Source -> Target
         CreateMap<User, UserDto>().ReverseMap();
+        CreateMap<User, UserLoginDto>().ReverseMap();
 
-        CreateMap<IEnumerable<User>, IEnumerable<UserDto>>().ReverseMap();
     }
 }
