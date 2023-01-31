@@ -1,5 +1,6 @@
 ﻿using AuthenticationService.Data;
 using AuthenticationService.DTOs;
+using AuthenticationService.Helpers;
 using AuthenticationService.Models;
 using AutoMapper;
 using Microsoft.AspNetCore.Authorization;
@@ -17,7 +18,7 @@ public class UsersController : ControllerBase
 {
     private readonly IUserRepository _userRepository;
     private readonly IMapper _mapper;
-    private readonly ILogger<UsersController> _logger = null;
+    private readonly ILogger<UsersController> _logger;
     private readonly IConfiguration _configuration;
 
     public UsersController(IUserRepository userRepository, IMapper mapper, ILogger<UsersController> logger, IConfiguration configuration)
@@ -65,11 +66,20 @@ public class UsersController : ControllerBase
         }
 
         userDto.Id = Guid.NewGuid().ToString();
-        var returnedId = await _userRepository.CreateUserAsync(_mapper.Map<User>(userDto));
+        var userModel = _mapper.Map<User>(userDto);
+        userModel.Role = "User";
+        var returnedId = await _userRepository.CreateUserAsync(userModel);
+
         if (returnedId == null)
         {
             return BadRequest();
         }
+
+        if(returnedId.ToLower().Equals("username already exists"))
+        {
+            return BadRequest("Username already exists");
+        }
+
 
         return Ok(returnedId);
     }
@@ -105,7 +115,7 @@ public class UsersController : ControllerBase
     [AllowAnonymous]
     [Route("login")]
     [HttpPost]
-    public ActionResult<string> LoginUserAsync(UserLoginDto userDto)
+    public async Task<ActionResult<string>> LoginUserAsync(UserLoginDto userDto)
     {
         if (!ModelState.IsValid)
         {
@@ -117,45 +127,26 @@ public class UsersController : ControllerBase
             return BadRequest();
         }
 
-        var userModel = _mapper.Map<User>(userDto);
+        // We need this to be able to retrieve the user with the role property
+        var userModel = await _userRepository.GetUserByUserameAsync(userDto.UserName);
+        if(userModel == null)
+        {
+            return NotFound();
+        }
 
-
-        var authenticatedUser = _userRepository.Login(userModel.UserName, userModel.Password);
+        var authenticatedUser = _userRepository.Login(userDto.UserName, userDto.Password);
 
         if (authenticatedUser == null)
         {
             return Unauthorized();
         }
 
-        var token = CreateToken(userModel);
+        var token = JwtTokenCreationHelper.CreateToken(userModel, _configuration);
 
         return Ok(token);
     }
 
-    private string CreateToken(User user)
-    {
-        List<Claim> claims = new List<Claim>
-        {
-            new Claim(ClaimTypes.Name, user.UserName)
-        };
-
-        var key = new SymmetricSecurityKey(System.Text.Encoding.UTF8.GetBytes(_configuration["Users:JwtToken"]));
-
-        var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha512Signature);
-        
-        var token = new JwtSecurityToken(
-            claims: claims,
-            // TODO : replace 30 days with 15 mins for production
-            // expires: DateTime.Now.AddMinutes(15),
-            expires: DateTime.Now.AddDays(30),
-            issuer: _configuration["Jwt:Issuer"],
-            audience: _configuration["Jwt:Audience"],
-            signingCredentials: credentials);
-
-        var jwt = new JwtSecurityTokenHandler().WriteToken(token);
-
-        return jwt;
-    }
+    
 
     [Route("updatepassword")]
     [HttpPut]

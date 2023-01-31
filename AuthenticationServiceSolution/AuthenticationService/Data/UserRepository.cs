@@ -19,6 +19,12 @@ public class UserRepository : IUserRepository
             throw new ArgumentNullException(nameof(user));
         }
 
+        var existingUser = await _appDbContext.Users.FirstOrDefaultAsync(u => u.UserName.ToLower() == user.UserName.ToLower());
+        if (existingUser != null)
+        {
+            return "Username already exists";
+        }
+
         try
         {
             // This needs to be done so that password hashing doesn't affect the argument's reference
@@ -29,7 +35,8 @@ public class UserRepository : IUserRepository
                 Password = PasswordEncryption.HashPassword(user.Password),
                 FirstName = user.FirstName,
                 LastName = user.LastName,
-                Email = user.Email
+                Email = user.Email,
+                Role = user.Role
             };
 
             await _appDbContext.AddAsync(userToInsert);
