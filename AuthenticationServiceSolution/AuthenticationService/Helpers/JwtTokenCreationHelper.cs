@@ -15,6 +15,7 @@ public static class JwtTokenCreationHelper
     {
         List<Claim> claims = new List<Claim>
         {
+            new Claim("Id", user.Id),
             new Claim(ClaimTypes.Name, user.UserName),
             new Claim(ClaimTypes.Role, user.Role)
         };

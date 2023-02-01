@@ -9,7 +9,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace AuthenticationService.Controllers;
 [Route("api/[controller]")]
 [ApiController]
-[Authorize]
+[Authorize(Roles = "Admin")]
 public class AdminsController : ControllerBase
 {
     private readonly IUserRepository _userRepository;
@@ -42,6 +42,7 @@ public class AdminsController : ControllerBase
         userDto.Id = Guid.NewGuid().ToString();
         var userModel = _mapper.Map<User>(userDto);
         userModel.Role = "Admin";
+        userModel.IsOwner = true;
         var returnedId = await _userRepository.CreateUserAsync(userModel);
 
         if (returnedId == null)
@@ -54,7 +55,19 @@ public class AdminsController : ControllerBase
             return BadRequest("Username already exists");
         }
 
-
         return Ok(returnedId);
+    }
+
+    [HttpGet]
+    public async Task<ActionResult<IEnumerable<UserDto>>> GetAllUsersAsync()
+    {
+        var users = await _userRepository.GetAllUsersAsync();
+
+        if (users == null)
+        {
+            return NotFound();
+        }
+
+        return Ok(_mapper.Map<UserDto>(users));
     }
 }

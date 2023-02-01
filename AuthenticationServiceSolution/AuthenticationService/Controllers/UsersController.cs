@@ -5,15 +5,17 @@ using AuthenticationService.Models;
 using AutoMapper;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Azure.Cosmos;
 using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
+using User = AuthenticationService.Models.User;
 
 namespace AuthenticationService.Controllers;
 
 [Route("api/[controller]")]
 [ApiController]
-[Authorize]
+[Authorize(Policy = "OnlyOwner")]
 public class UsersController : ControllerBase
 {
     private readonly IUserRepository _userRepository;
@@ -29,25 +31,14 @@ public class UsersController : ControllerBase
         _configuration = configuration;
     }
 
-    [HttpGet]
-    public async Task<ActionResult<IEnumerable<UserDto>>> GetAllUsersAsync()
-    {
-        var users = await _userRepository.GetAllUsersAsync();
 
-        if (users == null)
-        {
-            return NotFound();
-        }
-
-        return Ok(_mapper.Map<UserDto>(users));
-    }
 
     [Route("{id}")]
     [HttpGet]
     public async Task<ActionResult<UserDto>> GetUserByIdAsync(string id)
     {
-        var user = _userRepository.GetUserByIdAsync(id);
-
+   
+        var user = await _userRepository.GetUserByIdAsync(id);
         if (user == null)
         {
             return NotFound();
@@ -68,6 +59,7 @@ public class UsersController : ControllerBase
         userDto.Id = Guid.NewGuid().ToString();
         var userModel = _mapper.Map<User>(userDto);
         userModel.Role = "User";
+        userModel.IsOwner = true;
         var returnedId = await _userRepository.CreateUserAsync(userModel);
 
         if (returnedId == null)
@@ -75,18 +67,20 @@ public class UsersController : ControllerBase
             return BadRequest();
         }
 
-        if(returnedId.ToLower().Equals("username already exists"))
+        if (returnedId.ToLower().Equals("username already exists"))
         {
             return BadRequest("Username already exists");
         }
 
-
         return Ok(returnedId);
     }
 
+    //This id is used in authorization policy
+    [Route("{id}")]
     [HttpPut]
-    public async Task<ActionResult> UpdateUserAync(UserDto userDto)
+    public async Task<ActionResult> UpdateUserAync(string id, UserDto userDto)
     {
+        userDto.Id = id;
         if (!await _userRepository.UpdateUserAsync(_mapper.Map<User>(userDto)))
         {
             return BadRequest();
@@ -146,11 +140,11 @@ public class UsersController : ControllerBase
         return Ok(token);
     }
 
-    
 
-    [Route("updatepassword")]
+    // Id is used in authorization policy
+    [Route("updatepassword/{id}")]
     [HttpPut]
-    public async Task<ActionResult> UpdatePasswordAsync(UserDto userDto)
+    public async Task<ActionResult> UpdatePasswordAsync(string id, UserDto userDto)
     {
         if (!ModelState.IsValid)
         {

@@ -1,4 +1,5 @@
-﻿using AuthenticationService.Data;
+﻿using AuthenticationService.Authorization;
+using AuthenticationService.Data;
 using AuthenticationService.Extensions;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
@@ -17,6 +18,7 @@ public class Program
     public static void Main(string[] args)
     {
         var builder = WebApplication.CreateBuilder(args);
+
 
         IdentityModelEventSource.ShowPII = true;
 
@@ -52,6 +54,15 @@ public class Program
             };
         });
 
+        builder.Services.AddHttpContextAccessor();
+        builder.Services.AddAuthorization(options =>
+        {
+            options.AddPolicy("OnlyOwner", policy =>
+                policy.Requirements.Add(new OnlyOwnerRequirement()));
+            options.AddPolicy("AdminOnly", policy => policy.RequireRole("Admin"));
+        });
+
+        builder.Services.AddTransient<IAuthorizationHandler, OnlyOwnerHandler>();
         builder.Services.AddDbContext<AppDbContext>(options => options.UseCosmos(
             builder.Configuration["Users:AccountEndpoint"],
             builder.Configuration["Users:AccountKey"],
